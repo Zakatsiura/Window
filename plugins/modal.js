@@ -1,29 +1,58 @@
+Element.prototype.appendAfter = function (element) {
+  element.parentNode.insertBefore(this, element.nextSibling);
+};
+
+function _createModalFooter(buttons = []) {
+  if (buttons.length === 0) {
+    return document.createElement('div');
+  }
+  const wrap = document.createElement('div');
+  wrap.classList.add('modal-footer');
+
+  buttons.forEach((btn) => {
+    const $btn = document.createElement('button');
+    $btn.textContent = btn.text;
+    $btn.classList.add('btn');
+    $btn.classList.add(`btn-${btn.type || 'secondary'}`);
+    $btn.onclick = btn.handler || noop;
+
+    wrap.appendChild($btn);
+  });
+
+  return wrap;
+}
+
 function _createModal(options) {
+  const DEFAULT_WIDTH = '600px';
   const modal = document.createElement('div');
   modal.classList.add('my-modal');
   modal.insertAdjacentHTML(
     'afterbegin',
     `
     <div class="my-modal-overlay">
-      <div class="my-modal-window">
+      <div class="my-modal-window" style="width: ${
+        options.width || DEFAULT_WIDTH
+      }">
         <div class="my-modal-header">
-          <span class="modal.title">Title</span>
-          <span class="my-modal-close">&times;</span>
-        </div>
-        <div class="my-modal-body">
-          <p>
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Optio,
-            ipsam? Vero aliquid enim perferendis aperiam!
-          </p>
+          <span class="modal.title">${options.title || 'Widow'}</span>
+${
+  options.closable
+    ? `<span class="my-modal-close" data-close="true">&times;</span>`
+    : ''
+}
+          </div>
+        <div class="my-modal-body" data-content>
+          ${options.content || ''}
         </div>
         <div class="my-modal-footer">
-          <button>OK</button>
-          <button>Cancel</button>
+         
         </div>
       </div>
   </div>
   `
   );
+  const footer = _createModalFooter(options.footerButtons);
+  footer.appendAfter(modal.querySelector('[data-content]'));
   document.body.appendChild(modal);
   return modal;
 }
@@ -31,8 +60,13 @@ $.modal = function (options) {
   const ANIMATION_SPEED = 200;
   const $modal = _createModal(options);
   let closing = false;
-  return {
+  let destroyed = false;
+
+  const modal = {
     open() {
+      if (destroyed) {
+        return console.log('Modal is destroyed');
+      }
       !closing && $modal.classList.add('open');
     },
     close() {
@@ -44,6 +78,23 @@ $.modal = function (options) {
         closing = false;
       }, ANIMATION_SPEED);
     },
-    destroy() {},
   };
+
+  const listener = (event) => {
+    if (event.target.dataset.close) {
+      modal.close();
+    }
+  };
+
+  $modal.addEventListener('click', listener);
+  return Object.assign(modal, {
+    destroy() {
+      $modal.parentNode.removeChild($modal);
+      $modal.removeEventListener('click', listener);
+      destroyed = true;
+    },
+    setContent(html) {
+      $modal.querySelector('[data-content]').innerHTML = html;
+    },
+  });
 };
